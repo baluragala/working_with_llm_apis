@@ -1,0 +1,23 @@
+# Core
+python-dotenv>=1.0.1
+
+# Provider SDKs
+google-genai>=0.8.0
+huggingface_hub>=0.26.0
+openai>=1.50.0
+
+# Local model execution
+transformers>=4.45.0
+torch>=2.4.0
+accelerate>=1.0.0
+
+# Evaluation
+evaluate>=0.4.3
+rouge_score>=0.1.2
+sacrebleu>=2.4.3
+bert_score>=0.3.13
+nltk>=3.9.1
+
+# Utility
+requests>=2.32.0
+pydantic>=2.9.0

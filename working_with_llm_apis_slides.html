@@ -1,0 +1,1874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Working with LLM APIs · upGrad</title>
+
+<!-- Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,700;9..144,900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- Prism for syntax highlighting -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+
+<style>
+  :root {
+    --bg:        #0b1220;
+    --bg-alt:    #0f1a2e;
+    --panel:     #131f36;
+    --panel-2:   #1a2742;
+    --line:      #1e2c4d;
+    --ink:       #e6ecf7;
+    --ink-soft:  #aeb9d1;
+    --ink-mute:  #6b7796;
+    --accent:    #ffb84d;     /* amber */
+    --accent-2:  #4dd0e1;     /* cyan */
+    --accent-3:  #f47174;     /* coral for warnings */
+    --good:      #6ee7b7;
+
+    --font-display: 'Fraunces', Georgia, serif;
+    --font-body:    'Inter', system-ui, sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    overflow: hidden;
+  }
+
+  /* Stage holds all slides. Each slide is fixed-positioned; transitions via opacity + transform. */
+  .stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    padding: 4.5vh 6vw 6vh;
+    display: flex;
+    flex-direction: column;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(12px);
+    transition: opacity .35s ease, transform .35s ease;
+    overflow-y: auto;
+  }
+  .slide.is-active {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
+
+  /* Persistent UI: top label, slide counter, progress */
+  .topbar {
+    position: fixed;
+    top: 18px;
+    left: 24px;
+    right: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    z-index: 100;
+    pointer-events: none;
+  }
+  .topbar .session {
+    color: var(--accent-2);
+  }
+  .topbar .counter {
+    color: var(--ink-soft);
+  }
+  .topbar .counter .now {
+    color: var(--accent);
+  }
+
+  .progress {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: rgba(255,255,255,0.04);
+    z-index: 100;
+  }
+  .progress > span {
+    display: block;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent-2));
+    transition: width .35s ease;
+  }
+
+  .help {
+    position: fixed;
+    bottom: 14px;
+    right: 22px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    z-index: 100;
+    user-select: none;
+  }
+  .help kbd {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 1px 5px;
+    font-family: inherit;
+    font-size: 10px;
+  }
+
+  /* Common slide pieces */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    margin-bottom: 18px;
+  }
+  .h1 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    font-size: clamp(40px, 5.6vw, 80px);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+  .h1 em {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--accent);
+  }
+  .h2 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: clamp(28px, 3.4vw, 48px);
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+    color: var(--ink);
+    margin-bottom: 24px;
+  }
+  .h2 .accent { color: var(--accent); }
+  .h3 {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    margin-bottom: 12px;
+  }
+  .lede {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-style: italic;
+    font-size: clamp(18px, 1.6vw, 22px);
+    line-height: 1.45;
+    color: var(--ink-soft);
+    max-width: 70ch;
+    margin-bottom: 22px;
+  }
+  p, li {
+    font-size: clamp(14px, 1.05vw, 16px);
+    line-height: 1.55;
+    color: var(--ink-soft);
+  }
+  .small { font-size: 13px; color: var(--ink-mute); }
+  .accent { color: var(--accent); }
+  .accent-2 { color: var(--accent-2); }
+
+  /* Code blocks via Prism, but we override its theme to match our palette */
+  pre[class*="language-"] {
+    background: var(--bg-alt);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: clamp(11px, 0.95vw, 14px);
+    line-height: 1.55;
+    overflow-x: auto;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.02),
+      0 8px 24px rgba(0,0,0,0.25);
+    position: relative;
+  }
+  pre[class*="language-"]::before {
+    content: attr(data-label);
+    position: absolute;
+    top: 8px;
+    right: 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+  }
+  code[class*="language-"] {
+    font-family: var(--font-mono);
+    font-size: inherit;
+    color: #d4dbe9;
+  }
+  /* Recolor Prism tokens to fit our palette */
+  .token.comment, .token.prolog, .token.doctype, .token.cdata { color: #6b7796; font-style: italic; }
+  .token.punctuation { color: #aeb9d1; }
+  .token.property, .token.tag, .token.constant, .token.symbol, .token.deleted { color: #f47174; }
+  .token.boolean, .token.number { color: #ffb84d; }
+  .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin { color: #6ee7b7; }
+  .token.operator, .token.entity, .token.url, .language-css .token.string, .style .token.string,
+  .token.variable { color: #aeb9d1; }
+  .token.atrule, .token.attr-value, .token.function, .token.class-name { color: #4dd0e1; }
+  .token.keyword { color: #ffb84d; font-weight: 600; }
+  .token.regex, .token.important { color: #ffb84d; }
+
+  /* Inline code */
+  :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.92em;
+    background: rgba(77,208,225,0.08);
+    color: var(--accent-2);
+    padding: 1px 6px;
+    border-radius: 3px;
+    border: 1px solid rgba(77,208,225,0.18);
+  }
+
+  /* Layouts */
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+  .grid-2-narrow {
+    display: grid;
+    grid-template-columns: 0.9fr 1.1fr;
+    gap: 40px;
+    align-items: start;
+  }
+  .grid-3 {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 24px;
+  }
+
+  .stack > * + * { margin-top: 14px; }
+  .stack-lg > * + * { margin-top: 22px; }
+  .stack-sm > * + * { margin-top: 8px; }
+
+  /* Title slide */
+  .title-slide {
+    justify-content: center;
+    background:
+      radial-gradient(ellipse at top right, rgba(255,184,77,0.08), transparent 50%),
+      radial-gradient(ellipse at bottom left, rgba(77,208,225,0.06), transparent 50%);
+  }
+  .title-slide .h1 {
+    font-size: clamp(56px, 8vw, 120px);
+    line-height: 0.95;
+  }
+  .title-slide .meta {
+    margin-top: 28px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+  }
+  .title-slide .meta span {
+    color: var(--accent);
+  }
+  .title-slide .rule {
+    margin-top: 28px;
+    width: 80px;
+    height: 2px;
+    background: var(--accent);
+  }
+  .title-slide .blurb {
+    margin-top: 26px;
+    max-width: 62ch;
+  }
+
+  /* Section divider */
+  .section-slide {
+    justify-content: center;
+    background: var(--bg);
+  }
+  .section-slide .num {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: clamp(80px, 12vw, 200px);
+    line-height: 0.9;
+    color: var(--panel-2);
+    letter-spacing: -0.04em;
+  }
+  .section-slide .num em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .section-slide .h1 {
+    margin-top: -16px;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 20px 22px;
+    position: relative;
+  }
+  .card.accent-left::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 8px 0 0 8px;
+  }
+  .card.bad::before {
+    background: var(--accent-3);
+  }
+  .card.good::before {
+    background: var(--good);
+  }
+  .card .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    margin-bottom: 8px;
+  }
+  .card.bad .label { color: var(--accent-3); }
+  .card.good .label { color: var(--good); }
+  .card h4 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+    margin-bottom: 6px;
+  }
+  .card p { font-size: 13.5px; line-height: 1.5; }
+
+  /* Tables */
+  .ctable {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+  .ctable th {
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent-2);
+    font-weight: 500;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+  }
+  .ctable td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  .ctable tr:last-child td { border-bottom: none; }
+  .ctable td.code {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--accent-2);
+  }
+  .ctable td.k {
+    color: var(--ink);
+    font-weight: 500;
+  }
+  .ctable .row-em td.code { color: var(--accent); }
+
+  /* Numbered list */
+  .steps {
+    list-style: none;
+    counter-reset: stepc;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .steps li {
+    counter-increment: stepc;
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    gap: 14px;
+    align-items: start;
+    padding: 12px 16px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+  }
+  .steps li::before {
+    content: counter(stepc);
+    font-family: var(--font-mono);
+    font-weight: 600;
+    font-size: 13px;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--line);
+  }
+  .steps li b {
+    color: var(--ink);
+    font-weight: 600;
+    display: block;
+    margin-bottom: 2px;
+    font-size: 14.5px;
+  }
+  .steps li span {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  /* Diagram for HF providers */
+  .diagram {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    align-items: center;
+    gap: 18px;
+    margin-top: 20px;
+  }
+  .diag-box {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    text-align: center;
+  }
+  .diag-box.client { border-color: var(--accent-2); }
+  .diag-box.hub { border-color: var(--accent); }
+  .diag-box .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 6px;
+  }
+  .diag-box .name {
+    font-weight: 600;
+    color: var(--ink);
+    font-size: 14px;
+  }
+  .arrow {
+    color: var(--ink-mute);
+    font-size: 22px;
+    font-family: var(--font-mono);
+  }
+  .provider-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .provider-list .pill {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent-2);
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    color: var(--ink);
+  }
+
+  /* Outcomes grid */
+  .outcomes {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .outcome {
+    padding: 18px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  .outcome .num {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-size: 11px;
+    letter-spacing: 0.2em;
+    margin-bottom: 8px;
+  }
+  .outcome h4 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+  .outcome p {
+    font-size: 13px;
+    color: var(--ink-soft);
+  }
+
+  /* Agenda list */
+  .agenda {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+  }
+  .agenda .row {
+    display: grid;
+    grid-template-columns: 36px 1fr 90px;
+    align-items: center;
+    gap: 18px;
+    padding: 14px 18px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--panel);
+    transition: border-color .2s;
+  }
+  .agenda .row:hover { border-color: var(--accent-2); }
+  .agenda .num {
+    font-family: var(--font-mono);
+    font-weight: 600;
+    color: var(--accent);
+    font-size: 14px;
+  }
+  .agenda .title {
+    color: var(--ink);
+    font-weight: 600;
+    font-size: 16px;
+  }
+  .agenda .desc {
+    color: var(--ink-mute);
+    font-size: 13px;
+    margin-top: 2px;
+  }
+  .agenda .dur {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent-2);
+    text-align: right;
+    letter-spacing: 0.1em;
+  }
+
+  /* Inline alert callout */
+  .callout {
+    padding: 16px 20px;
+    border-radius: 6px;
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    background: rgba(255,184,77,0.06);
+    margin-top: 20px;
+  }
+  .callout.warn { border-left-color: var(--accent-3); background: rgba(244,113,116,0.06); }
+  .callout .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .callout.warn .label { color: var(--accent-3); }
+  .callout p { color: var(--ink); font-size: 14px; }
+
+  /* Definition list */
+  .deflist {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 12px 24px;
+    align-items: start;
+    margin-top: 16px;
+  }
+  .deflist dt {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent-2);
+    font-weight: 500;
+  }
+  .deflist dd {
+    color: var(--ink-soft);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Wrap-up checklist */
+  .checklist {
+    list-style: none;
+    margin-top: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .checklist li {
+    display: grid;
+    grid-template-columns: 24px 1fr;
+    gap: 14px;
+    align-items: center;
+    color: var(--ink);
+    font-size: 16px;
+  }
+  .checklist li::before {
+    content: '✓';
+    color: var(--good);
+    font-weight: 700;
+    font-size: 18px;
+  }
+
+  /* Section tag in topbar */
+  .section-tag {
+    display: inline-block;
+    color: var(--ink-soft);
+  }
+  .section-tag::before {
+    content: '§ ';
+    color: var(--ink-mute);
+  }
+
+  /* Print: plain layout, every slide on its own page */
+  @media print {
+    @page { size: 13.33in 7.5in; margin: 0; }
+    .topbar, .progress, .help { display: none; }
+    .stage { position: static; overflow: visible; }
+    .slide {
+      position: static;
+      opacity: 1 !important;
+      transform: none !important;
+      page-break-after: always;
+      page-break-inside: avoid;
+      height: 7.5in;
+      width: 13.33in;
+      overflow: hidden;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div><span class="session">Working with LLM APIs</span> &nbsp;·&nbsp; <span id="section-label">C8-W2-S1</span></div>
+  <div class="counter"><span class="now" id="cur">01</span> / <span id="total">38</span></div>
+</div>
+
+<div class="stage" id="stage">
+
+  <!-- ========================================================== -->
+  <!-- SLIDE 1 — TITLE                                               -->
+  <!-- ========================================================== -->
+  <section class="slide title-slide is-active" data-section="C8-W2-S1">
+    <div class="eyebrow">A 2.5-hour live workshop</div>
+    <h1 class="h1">Working with<br /><em>LLM APIs</em></h1>
+    <p class="lede blurb">
+      Build production-grade LLM applications using Gemini, Hugging Face, OpenAI,
+      and a model running on your own laptop &mdash; all in one session.
+    </p>
+    <div class="rule"></div>
+    <div class="meta">C8-W2-S1 &nbsp;·&nbsp; <span>upGrad</span></div>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SLIDE 2 — AGENDA                                              -->
+  <!-- ========================================================== -->
+  <section class="slide" data-section="Agenda">
+    <div class="eyebrow">Agenda</div>
+    <h2 class="h2">What we&rsquo;ll cover today</h2>
+
+    <div class="agenda">
+      <div class="row">
+        <div class="num">01</div>
+        <div><div class="title">Secure API setup</div><div class="desc">Keys, .env, billing, anti-patterns</div></div>
+        <div class="dur">20 min</div>
+      </div>
+      <div class="row">
+        <div class="num">02</div>
+        <div><div class="title">Gemini API</div><div class="desc">Requests, params, JSON, chat, tool calling</div></div>
+        <div class="dur">45 min</div>
+      </div>
+      <div class="row">
+        <div class="num">03</div>
+        <div><div class="title">Hugging Face Inference</div><div class="desc">InferenceClient, providers, other tasks</div></div>
+        <div class="dur">30 min</div>
+      </div>
+      <div class="row">
+        <div class="num">04</div>
+        <div><div class="title">Local model execution</div><div class="desc">TinyLlama via transformers; trade-offs</div></div>
+        <div class="dur">20 min</div>
+      </div>
+      <div class="row">
+        <div class="num">05</div>
+        <div><div class="title">OpenAI &mdash; delta view</div><div class="desc">What changes when you switch providers</div></div>
+        <div class="dur">12 min</div>
+      </div>
+      <div class="row">
+        <div class="num">06</div>
+        <div><div class="title">Evaluation</div><div class="desc">ROUGE, BLEU, BERTScore on real outputs</div></div>
+        <div class="dur">13 min</div>
+      </div>
+      <div class="row">
+        <div class="num">07</div>
+        <div><div class="title">Wrap-up &amp; Q&amp;A</div><div class="desc">Recap and questions</div></div>
+        <div class="dur">10 min</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SLIDE 3 — OUTCOMES                                            -->
+  <!-- ========================================================== -->
+  <section class="slide" data-section="Outcomes">
+    <div class="eyebrow">Learning outcomes</div>
+    <h2 class="h2">By the end, you&rsquo;ll be able to&hellip;</h2>
+
+    <div class="outcomes">
+      <div class="outcome">
+        <div class="num">01</div>
+        <h4>Manage keys safely</h4>
+        <p>Create, rotate, and load keys via env vars across three providers.</p>
+      </div>
+      <div class="outcome">
+        <div class="num">02</div>
+        <h4>Format requests correctly</h4>
+        <p>Send well-shaped requests with system roles, parameters, and tools.</p>
+      </div>
+      <div class="outcome">
+        <div class="num">03</div>
+        <h4>Tune generation params</h4>
+        <p>Control temperature, top_p, max tokens, and structured outputs.</p>
+      </div>
+      <div class="outcome">
+        <div class="num">04</div>
+        <h4>Compare providers fairly</h4>
+        <p>See past surface differences to the shared mental model.</p>
+      </div>
+      <div class="outcome">
+        <div class="num">05</div>
+        <h4>Run a model locally</h4>
+        <p>Download and serve a small chat model via transformers.</p>
+      </div>
+      <div class="outcome">
+        <div class="num">06</div>
+        <h4>Evaluate outputs</h4>
+        <p>Compute ROUGE, BLEU, BERTScore and read them honestly.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SECTION 1 — SECURE API SETUP                                  -->
+  <!-- ========================================================== -->
+  <section class="slide section-slide" data-section="§ 01 · Setup">
+    <div class="eyebrow">Section 01</div>
+    <div class="num"><em>01.</em></div>
+    <h1 class="h1">Secure <em>API setup</em></h1>
+    <p class="lede blurb">
+      Get keys for Gemini, Hugging Face, and OpenAI. Load them safely. Confirm everything
+      works <em>before</em> you write a single line of business logic.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 01 · Setup">
+    <div class="eyebrow">Where to get keys</div>
+    <h2 class="h2">Three keys, three dashboards</h2>
+
+    <table class="ctable">
+      <thead>
+        <tr><th>&nbsp;</th><th>Google Gemini</th><th>Hugging Face</th><th>OpenAI</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">Where</td><td class="code">aistudio.google.com/apikey</td><td class="code">huggingface.co/settings/tokens</td><td class="code">platform.openai.com/api-keys</td></tr>
+        <tr><td class="k">Free tier</td><td>Yes &mdash; generous quota</td><td>Yes &mdash; provider-dependent</td><td>No &mdash; billing required</td></tr>
+        <tr><td class="k">Scope</td><td>Per-project key</td><td>Read / write / fine-grained</td><td>Per-key permissions + spend cap</td></tr>
+        <tr><td class="k">Quota</td><td>RPM + TPM per model</td><td>Monthly credits or paid</td><td>$ spend + RPM / TPM</td></tr>
+        <tr><td class="k">Billing</td><td>Google Cloud console</td><td>HF billing page</td><td>platform.openai.com/usage</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <div class="label">Heads up</div>
+      <p>Hugging Face has two distinct concepts: <b>your account quota</b> AND <b>the inference provider&rsquo;s quota</b>. A &ldquo;read&rdquo; token is enough for everything we do today.</p>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 01 · Setup">
+    <div class="eyebrow">Loading keys</div>
+    <h2 class="h2">Loading keys the <span class="accent">right way</span></h2>
+
+    <div class="grid-2">
+      <div class="stack-lg">
+        <div>
+          <div class="h3">Step 1 &mdash; Create .env at repo root</div>
+<pre data-label=".env"><code class="language-bash">GEMINI_API_KEY=AIza...
+HF_TOKEN=hf_...
+OPENAI_API_KEY=sk-proj-...</code></pre>
+        </div>
+
+        <div>
+          <div class="h3">Step 2 &mdash; Add it to .gitignore</div>
+<pre data-label=".gitignore"><code class="language-bash">.env
+.venv/
+__pycache__/</code></pre>
+        </div>
+      </div>
+
+      <div>
+        <div class="h3">Step 3 &mdash; Load it in Python</div>
+<pre data-label="setup.py"><code class="language-python">import os
+from dotenv import load_dotenv
+
+load_dotenv()              # reads .env into os.environ
+
+key = os.environ["GEMINI_API_KEY"]
+# Use the key. Never log it.</code></pre>
+
+        <p class="small" style="margin-top:14px;">
+          <code>pip install python-dotenv</code> &mdash; call <code>load_dotenv()</code>
+          once, near the top of your entry point.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 01 · Setup">
+    <div class="eyebrow">Anti-patterns</div>
+    <h2 class="h2">Things that get you paged at <span class="accent">2&nbsp;a.m.</span></h2>
+
+    <div class="stack">
+      <div class="card bad accent-left">
+        <div class="label">Anti-pattern</div>
+        <h4 style="font-family: var(--font-mono); color: var(--accent-3);">API_KEY = "sk-proj-abc..."</h4>
+        <p>Hardcoded keys end up on GitHub. Bots scrape new commits within minutes &mdash; revocation is a race.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Anti-pattern</div>
+        <h4 style="font-family: var(--font-mono); color: var(--accent-3);">git add . && git commit -am "fix"</h4>
+        <p>Adds <code>.env</code> to your commit. Even after deletion, git history keeps it forever.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Anti-pattern</div>
+        <h4 style="font-family: var(--font-mono); color: var(--accent-3);">print(f"Calling with key={key}")</h4>
+        <p>Logs end up in CloudWatch, Datadog, Sentry, screenshots, support tickets.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Anti-pattern</div>
+        <h4 style="font-family: var(--font-mono); color: var(--accent-3);">sharing one key across the team</h4>
+        <p>When something leaks, you can&rsquo;t tell who or how. Issue keys per environment per developer.</p>
+      </div>
+    </div>
+
+    <p class="small" style="margin-top:18px; text-align:center; font-style:italic;">
+      Rule of thumb: if a stranger forked your repo right now, would they get into your account? If yes, fix it before continuing.
+    </p>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SECTION 2 — GEMINI                                             -->
+  <!-- ========================================================== -->
+  <section class="slide section-slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Section 02</div>
+    <div class="num"><em>02.</em></div>
+    <h1 class="h1"><em>Gemini</em> API</h1>
+    <p class="lede blurb">
+      Build up from a single-line request to multimodal inputs, structured JSON,
+      multi-turn chat, and tool calling &mdash; all on the same SDK.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Minimal request</div>
+    <h2 class="h2">The smallest possible Gemini request</h2>
+
+    <div class="grid-2-narrow">
+      <div>
+        <div class="h3">Two required arguments</div>
+        <dl class="deflist">
+          <dt>model</dt>
+          <dd>Which Gemini variant &mdash; <code>flash</code>, <code>pro</code>, etc.</dd>
+          <dt>contents</dt>
+          <dd>What you&rsquo;re asking &mdash; string, list, or multimodal Parts.</dd>
+        </dl>
+
+        <div class="h3" style="margin-top:24px;">Pick a model first</div>
+        <dl class="deflist">
+          <dt>gemini-2.5-flash</dt>
+          <dd>Fast, cheap, default for this class.</dd>
+          <dt>gemini-2.5-pro</dt>
+          <dd>Stronger reasoning, slower, costlier.</dd>
+        </dl>
+      </div>
+
+<pre data-label="01_minimal.py"><code class="language-python">import os
+from dotenv import load_dotenv
+from google import genai
+
+load_dotenv()
+client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="Explain prompt engineering in two sentences.",
+)
+print(response.text)</code></pre>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Generation parameters</div>
+    <h2 class="h2">Generation parameters and what they do</h2>
+
+    <table class="ctable">
+      <thead>
+        <tr><th>Parameter</th><th>Range</th><th>What it controls</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="code">temperature</td>
+          <td>0.0 – 2.0</td>
+          <td>Randomness of next-token sampling. 0 = deterministic; ~1.5 = creative; &gt;1.7 often degrades into nonsense.</td>
+        </tr>
+        <tr>
+          <td class="code">top_p</td>
+          <td>0.0 – 1.0</td>
+          <td>Nucleus sampling: keep tokens until their cumulative probability reaches top_p. Tune one of {temp, top_p}, not both.</td>
+        </tr>
+        <tr>
+          <td class="code">max_output_tokens</td>
+          <td>integer</td>
+          <td>Hard ceiling on response length. Set realistically &mdash; too low and you&rsquo;ll see <code>finish_reason=MAX_TOKENS</code> truncations.</td>
+        </tr>
+        <tr>
+          <td class="code">system_instruction</td>
+          <td>string</td>
+          <td>Persistent role / style / rules. Sent on every turn but separate from the user&rsquo;s contents.</td>
+        </tr>
+        <tr>
+          <td class="code">candidate_count</td>
+          <td>integer</td>
+          <td>Ask for multiple alternative completions in one request (model must support it).</td>
+        </tr>
+        <tr>
+          <td class="code">response_schema</td>
+          <td>Pydantic / dict</td>
+          <td>Constrain output to a JSON shape. Pairs with <code>response_mime_type='application/json'</code>.</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Parameters in code</div>
+    <h2 class="h2">Same prompt, three personalities</h2>
+
+<pre data-label="02_parameters.py"><code class="language-python">PROMPT = "Write one opening line for a story about a lighthouse keeper."
+
+# Deterministic — temperature 0
+boring = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=PROMPT,
+    config=types.GenerateContentConfig(
+        temperature=0.0,
+        max_output_tokens=60,
+    ),
+)
+
+# High temperature, creative
+creative = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=PROMPT,
+    config=types.GenerateContentConfig(temperature=1.5, top_p=0.95, max_output_tokens=60),
+)
+
+# With a system instruction (Gemini's "persona" channel — NOT a role)
+styled = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=PROMPT,
+    config=types.GenerateContentConfig(
+        system_instruction="You are a hard-boiled noir novelist. Short, dark, cynical.",
+        temperature=0.9,
+        max_output_tokens=60,
+    ),
+)</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Multimodal</div>
+    <h2 class="h2">Multimodal inputs: text + image in one call</h2>
+
+    <div class="grid-2">
+<pre data-label="03_multimodal.py"><code class="language-python">img_bytes = requests.get(IMAGE_URL).content
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=[
+        "Describe this animal in one sentence,"
+        " then list three traits as bullets.",
+        types.Part.from_bytes(
+            data=img_bytes,
+            mime_type="image/jpeg",
+        ),
+    ],
+)
+print(response.text)</code></pre>
+
+      <div>
+        <div class="h3">Also accepts</div>
+        <ul style="list-style:none;">
+          <li style="margin:10px 0;"><b style="color:var(--ink);">PDFs</b> &mdash; ask questions over a doc</li>
+          <li style="margin:10px 0;"><b style="color:var(--ink);">Audio</b> &mdash; mp3, wav, ogg, flac</li>
+          <li style="margin:10px 0;"><b style="color:var(--ink);">Video</b> &mdash; mp4 up to ~1 hour</li>
+          <li style="margin:10px 0;"><b style="color:var(--ink);">Multiple files</b> in one call</li>
+        </ul>
+        <div class="callout">
+          <div class="label">Pro tip</div>
+          <p>For files &gt; 20 MB or anything reused across requests, use <code>client.files.upload()</code> instead of inlining bytes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Structured output</div>
+    <h2 class="h2">JSON you can <span class="accent">trust</span></h2>
+
+    <div class="grid-2">
+<pre data-label="04_structured_json.py"><code class="language-python">from pydantic import BaseModel
+from typing import List
+
+class Book(BaseModel):
+    title: str
+    author: str
+    year: int
+    genre: str
+
+class BookList(BaseModel):
+    books: List[Book]
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="List three classic sci-fi novels.",
+    config=types.GenerateContentConfig(
+        response_mime_type="application/json",
+        response_schema=BookList,
+    ),
+)
+
+# Two ways to read the result:
+print(response.text)         # raw JSON string
+parsed = response.parsed     # typed Python object
+for b in parsed.books:
+    print(b.year, b.title, "by", b.author)</code></pre>
+
+      <div>
+        <div class="h3">Why bother</div>
+        <ul style="list-style:none;">
+          <li style="margin:14px 0;"><b style="color:var(--ink);">Predictable shape</b><br /><span class="small">Your downstream code can rely on it.</span></li>
+          <li style="margin:14px 0;"><b style="color:var(--ink);">Fewer parsing bugs</b><br /><span class="small">No regex on stray markdown fences.</span></li>
+          <li style="margin:14px 0;"><b style="color:var(--ink);">Validates types</b><br /><span class="small"><code>year</code> is an int, not the string &ldquo;nineteen sixty-nine&rdquo;.</span></li>
+          <li style="margin:14px 0;"><b style="color:var(--ink);">Production-ready</b><br /><span class="small">Pair with try/except for any provider that may slip up.</span></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Response metadata</div>
+    <h2 class="h2">What the response actually contains</h2>
+
+<pre data-label="05_metadata.py"><code class="language-python">response.text                                # convenience: first candidate's text
+response.candidates                          # list of candidate completions
+response.candidates[0].finish_reason         # STOP | MAX_TOKENS | SAFETY | ...
+response.candidates[0].safety_ratings        # per-category classifications
+
+response.usage_metadata.prompt_token_count
+response.usage_metadata.candidates_token_count
+response.usage_metadata.total_token_count    # = prompt + candidates</code></pre>
+
+    <div class="callout">
+      <div class="label">Always log this</div>
+      <p>
+        <code>usage_metadata.total_token_count</code> is the only honest answer to
+        &ldquo;how much did this user / request / day actually cost?&rdquo; &mdash;
+        pricing pages give per-token rates.
+      </p>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Roles</div>
+    <h2 class="h2">Roles in Gemini vs. the rest of the world</h2>
+
+    <table class="ctable">
+      <thead>
+        <tr><th>Concept</th><th>Gemini name</th><th>OpenAI / HF name</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">What the human said</td><td class="code">role="user"</td><td class="code">"user"</td></tr>
+        <tr><td class="k">What the model said</td><td class="code">role="model"</td><td class="code">"assistant"</td></tr>
+        <tr><td class="k">Persistent rules / persona</td><td class="code">system_instruction (separate)</td><td class="code">role="system" message</td></tr>
+        <tr><td class="k">Tool / function output</td><td class="code">Part.from_function_response</td><td class="code">role="tool"</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <div class="label">Big trap</div>
+      <p>
+        Gemini does <b>NOT</b> have a system role. Putting <code>role="system"</code>
+        in your <code>contents</code> list will fail or behave unexpectedly. Use
+        <code>system_instruction</code> in the config instead.
+      </p>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Multi-turn chat</div>
+    <h2 class="h2">Multi-turn conversations</h2>
+
+    <div class="grid-2">
+      <div>
+        <div class="h3">Approach 1 &mdash; Manual history</div>
+<pre data-label="manual.py"><code class="language-python">history = [
+    Content(role="user",
+            parts=[Part(text="My name is Asha.")]),
+]
+r = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents=history,
+)
+history.append(Content(
+    role="model",
+    parts=[Part(text=r.text)],
+))
+# next turn: append user, send again</code></pre>
+      </div>
+
+      <div>
+        <div class="h3">Approach 2 &mdash; chats module</div>
+<pre data-label="chats.py"><code class="language-python">chat = client.chats.create(
+    model="gemini-2.5-flash",
+    config=GenerateContentConfig(
+        system_instruction="Be concise.",
+    ),
+)
+
+reply = chat.send_message("I'm visiting Goa.")
+reply = chat.send_message("A beach for day 1?")
+reply = chat.send_message("And food?")
+# history is tracked for you</code></pre>
+      </div>
+    </div>
+
+    <p class="small" style="text-align:center; margin-top:20px; font-style:italic;">
+      LLMs are stateless. Both approaches work by re-sending the full history each turn.
+      Manual = full control; <code>chats</code> = less code.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Tool calling</div>
+    <h2 class="h2">Tool calling &mdash; <span class="accent">six steps</span> you&rsquo;ll see in every provider</h2>
+
+    <ol class="steps">
+      <li><div><b>Declare your function</b><span>Name, description, parameter schema.</span></div></li>
+      <li><div><b>Send prompt + tool list</b><span>Pass <code>tools=[...]</code> in your request config.</span></div></li>
+      <li><div><b>Model decides</b><span>Replies in plain text OR returns a <code>function_call</code> object.</span></div></li>
+      <li><div><b>You execute the function</b><span>On your machine, with the args the model gave you.</span></div></li>
+      <li><div><b>Send the result back</b><span>As a function response part in the next turn.</span></div></li>
+      <li><div><b>Model finalizes the answer</b><span>Now grounded on real data from your function.</span></div></li>
+    </ol>
+
+    <p class="small" style="text-align:center; margin-top:18px; font-style:italic;">
+      Mental model: the model never executes anything. It just asks. <span class="accent">You decide.</span>
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 02 · Gemini">
+    <div class="eyebrow">Tool calling in code</div>
+    <h2 class="h2">Tool calling &mdash; what the code looks like</h2>
+
+<pre data-label="07_tool_calling.py"><code class="language-python">def get_weather(city: str) -> dict:
+    fake_db = {
+        "mumbai":    {"temp_c": 31, "conditions": "humid, partly cloudy"},
+        "bangalore": {"temp_c": 24, "conditions": "light rain"},
+        "delhi":     {"temp_c": 36, "conditions": "hot and dry"},
+    }
+    return fake_db.get(city.lower(), {"error": f"No data for {city}"})
+
+weather_tool = types.Tool(function_declarations=[
+    types.FunctionDeclaration(
+        name="get_weather",
+        description="Get the current weather for an Indian city.",
+        parameters=types.Schema(
+            type=types.Type.OBJECT,
+            properties={"city": types.Schema(type=types.Type.STRING)},
+            required=["city"],
+        ),
+    ),
+])
+
+response = client.models.generate_content(
+    model="gemini-2.5-flash",
+    contents="What's the weather in Bangalore? Should I carry an umbrella?",
+    config=types.GenerateContentConfig(tools=[weather_tool]),
+)
+
+part = response.candidates[0].content.parts[0]
+if part.function_call:
+    fc = part.function_call
+    result = get_weather(**dict(fc.args))           # 1. you run the function
+    follow_up = client.models.generate_content(     # 2. send result back
+        model="gemini-2.5-flash",
+        contents=[..., types.Content(role="user", parts=[
+            types.Part.from_function_response(name=fc.name, response=result)])],
+        config=types.GenerateContentConfig(tools=[weather_tool]),
+    )
+    print(follow_up.text)                           # 3. final grounded answer</code></pre>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SECTION 3 — HUGGING FACE                                       -->
+  <!-- ========================================================== -->
+  <section class="slide section-slide" data-section="§ 03 · Hugging Face">
+    <div class="eyebrow">Section 03</div>
+    <div class="num"><em>03.</em></div>
+    <h1 class="h1"><em>Hugging Face</em><br />Inference</h1>
+    <p class="lede blurb">
+      One client, many backends. Hit Llama on Together, DeepSeek on Fireworks,
+      Mistral on HF&rsquo;s own inference &mdash; without rewriting your code.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 03 · Hugging Face">
+    <div class="eyebrow">InferenceClient</div>
+    <h2 class="h2">One class, OpenAI-shaped API</h2>
+
+    <p class="lede" style="margin-bottom:24px;">
+      The <code>chat_completion</code> method mirrors OpenAI&rsquo;s: same messages format,
+      same role names, same response shape. <em>Intentional</em> &mdash; it&rsquo;s the
+      industry&rsquo;s de-facto standard.
+    </p>
+
+<pre data-label="01_inference_client.py"><code class="language-python">import os
+from dotenv import load_dotenv
+from huggingface_hub import InferenceClient
+
+load_dotenv()
+client = InferenceClient(token=os.environ["HF_TOKEN"])
+
+response = client.chat_completion(
+    model="meta-llama/Llama-3.1-8B-Instruct",
+    messages=[
+        {"role": "system", "content": "You are concise."},
+        {"role": "user",   "content": "Explain prompt engineering in two sentences."},
+    ],
+    temperature=0.7,
+    max_tokens=200,
+)
+
+print(response.choices[0].message.content)
+print(response.usage)        # tokens, like OpenAI
+print(response.choices[0].finish_reason)</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 03 · Hugging Face">
+    <div class="eyebrow">Inference Providers</div>
+    <h2 class="h2">Inference Providers &mdash; avoid <span class="accent">vendor lock-in</span></h2>
+
+    <p class="lede" style="margin-bottom:8px;">
+      A model on the Hub can be served by multiple providers. You pick one with
+      <code>provider="..."</code>. Switch providers later by changing one string.
+    </p>
+
+    <div class="diagram">
+      <div class="diag-box client">
+        <div class="label">Your code</div>
+        <div class="name">InferenceClient</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="diag-box hub">
+        <div class="label">Hugging Face</div>
+        <div class="name">Inference router</div>
+      </div>
+      <div class="arrow">→</div>
+      <div class="provider-list">
+        <div class="pill">HF Inference</div>
+        <div class="pill">Together AI</div>
+        <div class="pill">Fireworks</div>
+        <div class="pill">Replicate</div>
+        <div class="pill">Cerebras</div>
+      </div>
+    </div>
+
+<pre data-label="provider_switch.py" style="margin-top:24px;"><code class="language-python">client = InferenceClient(token=t, provider="together")    # one of: auto, hf-inference,
+                                                          # together, fireworks-ai, replicate, ...
+# Same model. Same code. Different backend.
+# Switch when one is faster, cheaper, or down.</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 03 · Hugging Face">
+    <div class="eyebrow">Discovery + auto-routing</div>
+    <h2 class="h2">Find which providers host a model</h2>
+
+<pre data-label="03_provider_selection.py"><code class="language-python">from huggingface_hub import model_info
+
+info = model_info(
+    "meta-llama/Llama-3.1-8B-Instruct",
+    expand=["inferenceProviderMapping"],
+    token=os.environ["HF_TOKEN"],
+)
+providers = list(info.inference_provider_mapping.keys())
+print(providers)
+# ['hf-inference', 'together', 'fireworks-ai', 'cerebras', ...]
+
+# Or just let HF route for you:
+client = InferenceClient(token=os.environ["HF_TOKEN"], provider="auto")</code></pre>
+
+    <div class="callout">
+      <div class="label">When to pin vs. auto</div>
+      <p>
+        <code>"auto"</code> is great for prototypes &mdash; HF picks whichever provider is
+        fastest / cheapest / available. For production, pin a specific provider so
+        latency and pricing stay predictable.
+      </p>
+    </div>
+  </section>
+
+  <section class="slide" data-section="§ 03 · Hugging Face">
+    <div class="eyebrow">Structured output</div>
+    <h2 class="h2">JSON schema with <code>response_format</code></h2>
+
+<pre data-label="04_structured_output.py"><code class="language-python">from pydantic import BaseModel, ValidationError
+from typing import List
+
+class Book(BaseModel):
+    title: str
+    author: str
+    year: int
+    genre: str
+
+class BookList(BaseModel):
+    books: List[Book]
+
+schema = BookList.model_json_schema()       # Pydantic gives this for free
+
+response = client.chat_completion(
+    model="meta-llama/Llama-3.1-8B-Instruct",
+    messages=[
+        {"role": "system", "content": "You return only valid JSON. No prose."},
+        {"role": "user",   "content": "List three classic science fiction novels."},
+    ],
+    response_format={
+        "type": "json_schema",
+        "json_schema": {"name": "BookList", "schema": schema, "strict": True},
+    },
+    max_tokens=400,
+)
+
+# Defensive parsing — not every provider strictly enforces the schema
+try:
+    parsed = BookList.model_validate_json(response.choices[0].message.content)
+except ValidationError as e:
+    print("Validation failed:", e)</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 03 · Hugging Face">
+    <div class="eyebrow">Beyond chat</div>
+    <h2 class="h2">More than chat &mdash; task-specific endpoints</h2>
+
+    <table class="ctable">
+      <thead>
+        <tr><th>Task</th><th>Method</th><th>Typical use</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">summarization</td><td class="code">client.summarization(text)</td><td>Long article → 2-sentence summary</td></tr>
+        <tr><td class="k">text_classification</td><td class="code">client.text_classification(text)</td><td>Sentiment, topic, intent</td></tr>
+        <tr><td class="k">translation</td><td class="code">client.translation(text, src, tgt)</td><td>EN → HI for chatbot localisation</td></tr>
+        <tr><td class="k">feature_extraction</td><td class="code">client.feature_extraction(text)</td><td>Embeddings → vector DB → RAG</td></tr>
+        <tr><td class="k">image_classification</td><td class="code">client.image_classification(image)</td><td>Tag uploaded photos</td></tr>
+        <tr><td class="k">automatic_speech_recognition</td><td class="code">client.automatic_speech_recognition(...)</td><td>Audio → transcript</td></tr>
+      </tbody>
+    </table>
+
+    <p class="small" style="text-align:center; margin-top:18px; font-style:italic;">
+      Each task expects a model trained for THAT task. Don&rsquo;t hand a chat LLM to
+      <code>summarization()</code> &mdash; it won&rsquo;t work.
+    </p>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SECTION 4 — LOCAL MODEL                                       -->
+  <!-- ========================================================== -->
+  <section class="slide section-slide" data-section="§ 04 · Local">
+    <div class="eyebrow">Section 04</div>
+    <div class="num"><em>04.</em></div>
+    <h1 class="h1"><em>Local</em> model<br />execution</h1>
+    <p class="lede blurb">
+      Pull a small chat model from the Hub and run it on your laptop. No API call,
+      no per-token cost, privacy by default.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 04 · Local">
+    <div class="eyebrow">Trade-offs</div>
+    <h2 class="h2">Hosted vs. local &mdash; what actually changes</h2>
+
+    <table class="ctable">
+      <thead>
+        <tr><th>Concern</th><th>Hosted API</th><th>Local model</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">Cost</td><td>Per-token, predictable scaling</td><td>GPU + electricity, predictable for steady load</td></tr>
+        <tr><td class="k">Latency</td><td>Network + queue (variable)</td><td>Hardware-bound, consistent if local GPU</td></tr>
+        <tr><td class="k">Privacy</td><td>Data leaves your network</td><td>Data never leaves your machine</td></tr>
+        <tr><td class="k">Quality</td><td>Frontier models available</td><td>Capped by what fits on your hardware</td></tr>
+        <tr><td class="k">Tool calling</td><td>First-class on most providers</td><td>Often weaker / non-existent on small models</td></tr>
+        <tr><td class="k">Ops burden</td><td>Provider&rsquo;s problem</td><td>Your problem (updates, batching, scaling)</td></tr>
+        <tr><td class="k">Offline / air-gap</td><td>Impossible</td><td>Trivial</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="slide" data-section="§ 04 · Local">
+    <div class="eyebrow">Loading a local model</div>
+    <h2 class="h2">Loading and running TinyLlama (1.1B params)</h2>
+
+<pre data-label="01_download_run_tinyllama.py"><code class="language-python">from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
+
+MODEL_ID = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+
+# Pick the best device available
+if torch.cuda.is_available():        device = "cuda"
+elif torch.backends.mps.is_available(): device = "mps"     # Apple Silicon
+else:                                device = "cpu"
+
+# First run: pulls ~2 GB from the Hub. Cached at ~/.cache/huggingface afterwards.
+tokenizer = AutoTokenizer.from_pretrained(MODEL_ID)
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    torch_dtype=torch.float16 if device != "cpu" else torch.float32,
+).to(device)
+
+# Format the prompt with the model's chat template
+messages = [
+    {"role": "system", "content": "You are a concise assistant."},
+    {"role": "user",   "content": "Explain prompt engineering in two sentences."},
+]
+prompt = tokenizer.apply_chat_template(
+    messages, tokenize=False, add_generation_prompt=True,
+)
+
+inputs = tokenizer(prompt, return_tensors="pt").to(device)
+with torch.no_grad():
+    output_ids = model.generate(
+        **inputs, max_new_tokens=200, do_sample=True,
+        temperature=0.7, top_p=0.95,
+        pad_token_id=tokenizer.eos_token_id,
+    )
+
+# Strip the prompt tokens; keep only the model's reply
+new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
+print(tokenizer.decode(new_tokens, skip_special_tokens=True))</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 04 · Local">
+    <div class="eyebrow">Tokens & gated models</div>
+    <h2 class="h2">Tokens, gated models, and what &ldquo;read access&rdquo; means</h2>
+
+    <div class="stack">
+      <div class="card accent-left">
+        <div class="label">Public</div>
+        <h4>Public models</h4>
+        <p>TinyLlama, Phi-2, GPT-2, etc. &mdash; no token needed for download.</p>
+      </div>
+      <div class="card accent-left">
+        <div class="label">Gated</div>
+        <h4>Gated models</h4>
+        <p>Llama, Gemma, Mistral-Instruct &mdash; accept the licence on the model page, then a read-token works.</p>
+      </div>
+      <div class="card accent-left">
+        <div class="label">Permissions</div>
+        <h4>Read vs write</h4>
+        <p><b>Read</b> = pull models, run inference. <b>Write</b> = push models / datasets back. Use <i>read</i> for everything in this class.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Watch out</div>
+        <h4>Storage cost</h4>
+        <p>Small (~2 GB) for TinyLlama. A 70B model in fp16 is ~140 GB &mdash; read the disk size <i>before</i> you click download.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SECTION 5 — OPENAI                                            -->
+  <!-- ========================================================== -->
+  <section class="slide section-slide" data-section="§ 05 · OpenAI">
+    <div class="eyebrow">Section 05</div>
+    <div class="num"><em>05.</em></div>
+    <h1 class="h1"><em>OpenAI</em><br />delta view</h1>
+    <p class="lede blurb">
+      You already know everything you need. We&rsquo;re only highlighting the small
+      syntactic differences between OpenAI and what we&rsquo;ve already seen.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 05 · OpenAI">
+    <div class="eyebrow">Side by side</div>
+    <h2 class="h2">Three providers, side by side</h2>
+
+    <table class="ctable">
+      <thead>
+        <tr><th>Concept</th><th>Gemini</th><th>Hugging Face</th><th>OpenAI</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="k">Client</td><td class="code">genai.Client</td><td class="code">InferenceClient</td><td class="code">OpenAI</td></tr>
+        <tr><td class="k">Method</td><td class="code">.models.generate_content</td><td class="code">.chat_completion</td><td class="code">.chat.completions.create</td></tr>
+        <tr><td class="k">Roles</td><td class="code">user / model</td><td class="code">system / user / assistant</td><td class="code">system / user / assistant</td></tr>
+        <tr><td class="k">System prompt</td><td class="code">system_instruction (config)</td><td class="code">system message</td><td class="code">system message</td></tr>
+        <tr><td class="k">Max tokens</td><td class="code">max_output_tokens</td><td class="code">max_tokens</td><td class="code">max_tokens</td></tr>
+        <tr><td class="k">Output text</td><td class="code">.text</td><td class="code">.choices[0].message.content</td><td class="code">same as HF</td></tr>
+        <tr><td class="k">Token usage</td><td class="code">.usage_metadata</td><td class="code">.usage</td><td class="code">.usage</td></tr>
+        <tr><td class="k">Tools</td><td class="code">Tool / FunctionDeclaration</td><td class="code">tools=[...] (OpenAI shape)</td><td class="code">tools=[{type: function, ...}]</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="slide" data-section="§ 05 · OpenAI">
+    <div class="eyebrow">Minimal example</div>
+    <h2 class="h2">Minimal OpenAI example</h2>
+
+<pre data-label="01_minimal.py"><code class="language-python">import os
+from dotenv import load_dotenv
+from openai import OpenAI
+
+load_dotenv()
+client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+
+response = client.chat.completions.create(
+    model="gpt-4o-mini",
+    messages=[
+        {"role": "system",
+         "content": "You are a hard-boiled noir detective novelist."},
+        {"role": "user",
+         "content": "Write one opening line for a story about a lighthouse keeper."},
+    ],
+    temperature=1.2,
+    top_p=0.95,
+    max_tokens=60,
+)
+
+print(response.choices[0].message.content)
+print(response.choices[0].finish_reason)
+print(response.usage.total_tokens)</code></pre>
+
+    <p class="small" style="text-align:center; margin-top:20px; font-style:italic;">
+      Mental model: if you&rsquo;ve written one provider, you&rsquo;ve written them all.
+      Memorize <span class="accent">the shape</span>, not the syntax.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 05 · OpenAI">
+    <div class="eyebrow">Tool calling</div>
+    <h2 class="h2">Tool calling &mdash; OpenAI shape</h2>
+
+<pre data-label="02_tool_calling.py"><code class="language-python">tools = [{
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "description": "Get the current weather for an Indian city.",
+        "parameters": {
+            "type": "object",
+            "properties": {"city": {"type": "string"}},
+            "required": ["city"],
+        },
+    },
+}]
+
+messages = [{"role": "user",
+             "content": "What's the weather in Bangalore? Should I carry an umbrella?"}]
+
+# Round 1 — model decides to call the tool
+r1 = client.chat.completions.create(model="gpt-4o-mini", messages=messages, tools=tools)
+assistant_msg = r1.choices[0].message
+messages.append(assistant_msg)        # OpenAI requires the assistant turn in history
+
+for call in (assistant_msg.tool_calls or []):
+    args = json.loads(call.function.arguments)
+    result = get_weather(**args)
+    messages.append({                  # role="tool" with matching tool_call_id
+        "role": "tool",
+        "tool_call_id": call.id,
+        "content": json.dumps(result),
+    })
+
+# Round 2 — model writes the final user-facing answer
+r2 = client.chat.completions.create(model="gpt-4o-mini", messages=messages, tools=tools)
+print(r2.choices[0].message.content)</code></pre>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- SECTION 6 — EVALUATION                                        -->
+  <!-- ========================================================== -->
+  <section class="slide section-slide" data-section="§ 06 · Evaluation">
+    <div class="eyebrow">Section 06</div>
+    <div class="num"><em>06.</em></div>
+    <h1 class="h1"><em>Evaluating</em><br />outputs</h1>
+    <p class="lede blurb">
+      If you can&rsquo;t measure it, you can&rsquo;t improve it. ROUGE for summaries,
+      BLEU for translation, BERTScore for meaning &mdash; and humans for the rest.
+    </p>
+  </section>
+
+  <section class="slide" data-section="§ 06 · Evaluation">
+    <div class="eyebrow">ROUGE</div>
+    <h2 class="h2">ROUGE &mdash; n-gram overlap (summarization)</h2>
+
+    <p class="lede" style="margin-bottom:18px;">
+      Compares candidate summary against one or more references by counting shared n-grams.
+      Returns precision, recall, F1.
+    </p>
+
+    <dl class="deflist">
+      <dt>rouge1</dt><dd>Unigram overlap &mdash; shared single words.</dd>
+      <dt>rouge2</dt><dd>Bigram overlap &mdash; shared two-word phrases.</dd>
+      <dt>rougeL</dt><dd>Longest common subsequence &mdash; rewards in-order overlap.</dd>
+    </dl>
+
+<pre data-label="01_rouge.py" style="margin-top:22px;"><code class="language-python">from rouge_score import rouge_scorer
+
+scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+scores = scorer.score(reference_summary, candidate_summary)
+
+for metric, s in scores.items():
+    print(f"{metric:8} P={s.precision:.3f}  R={s.recall:.3f}  F1={s.fmeasure:.3f}")</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 06 · Evaluation">
+    <div class="eyebrow">BLEU & BERTScore</div>
+    <h2 class="h2">When ROUGE isn&rsquo;t enough</h2>
+
+    <div class="grid-2">
+      <div class="card accent-left">
+        <div class="label">BLEU</div>
+        <h4>Translation</h4>
+        <p>Precision-focused n-gram overlap with a brevity penalty.</p>
+        <p style="margin-top:10px;"><b style="color:var(--ink);">Range:</b> 0–100 (sacrebleu) or 0–1 (NLTK). 30+ is good for MT.</p>
+        <p style="margin-top:10px;"><b style="color:var(--ink-soft);">Weakness:</b> synonyms get punished; one bad word can crush the score.</p>
+      </div>
+      <div class="card good accent-left">
+        <div class="label">BERTScore</div>
+        <h4>Semantic similarity</h4>
+        <p>Embeds tokens with a transformer (RoBERTa) and matches them by cosine similarity.</p>
+        <p style="margin-top:10px;"><b style="color:var(--ink);">Strength:</b> recognises paraphrases &mdash; <code>"feline rested on rug" ≈ "cat sat on mat"</code>.</p>
+        <p style="margin-top:10px;"><b style="color:var(--ink-soft);">Cost:</b> slow on first run (~500 MB download); cached afterwards.</p>
+      </div>
+    </div>
+
+<pre data-label="03_bertscore.py" style="margin-top:24px;"><code class="language-python">from bert_score import score
+
+P, R, F1 = score(
+    candidates, references,
+    lang="en", model_type="roberta-large", verbose=False,
+)
+# tensors of length len(candidates) — cosine-based precision/recall/F1</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 06 · Evaluation">
+    <div class="eyebrow">End-to-end pipeline</div>
+    <h2 class="h2">An end-to-end comparison pipeline</h2>
+
+<pre data-label="04_compare_models.py"><code class="language-python"># 1. Define task + gold reference
+ARTICLE = "..."
+PROMPT = f"Summarize the following in one sentence:\n\n{ARTICLE}"
+REFERENCE = "..."         # human-written gold summary
+
+# 2. Generate from each candidate model
+outputs = {}
+outputs["gemini-2.5-flash"] = call_gemini(PROMPT)
+outputs["llama-3.1-8b-hf"]  = call_hf(PROMPT)
+
+# 3. Persist (so eval is repeatable without re-spending API $$)
+Path("outputs.json").write_text(json.dumps(outputs, indent=2, ensure_ascii=False))
+
+# 4. Score against the reference
+scorer = rouge_scorer.RougeScorer(["rouge1", "rouge2", "rougeL"], use_stemmer=True)
+print(f"{'Model':<22} {'rouge1-F':>10} {'rouge2-F':>10} {'rougeL-F':>10}")
+for label, text in outputs.items():
+    s = scorer.score(REFERENCE, text)
+    print(f"{label:<22} {s['rouge1'].fmeasure:>10.3f} "
+          f"{s['rouge2'].fmeasure:>10.3f} {s['rougeL'].fmeasure:>10.3f}")
+
+# 5. Read the actual outputs. Numbers lie sometimes.
+for label, text in outputs.items():
+    print(f"\n[{label}]\n{text}")</code></pre>
+  </section>
+
+  <section class="slide" data-section="§ 06 · Evaluation">
+    <div class="eyebrow">Limits</div>
+    <h2 class="h2">What automated metrics <span class="accent">CAN&rsquo;T</span> tell you</h2>
+
+    <div class="stack">
+      <div class="card bad accent-left">
+        <div class="label">Blind spot</div>
+        <h4>Factuality</h4>
+        <p>ROUGE/BLEU/BERTScore don&rsquo;t know if the model invented something. A confident lie scores well if it sounds like the reference.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Blind spot</div>
+        <h4>Relevance</h4>
+        <p>A summary that&rsquo;s correct and well-written but answers a different question still scores high if words overlap.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Blind spot</div>
+        <h4>Style fit</h4>
+        <p>Tone, register, formality &mdash; none of these surface in n-gram metrics.</p>
+      </div>
+      <div class="card bad accent-left">
+        <div class="label">Blind spot</div>
+        <h4>Safety</h4>
+        <p>Hallucinated medical advice or biased generation looks the same as good output to a metric.</p>
+      </div>
+    </div>
+
+    <p class="small" style="text-align:center; margin-top:18px; font-style:italic;">
+      Use automated metrics for fast iteration. Pair with human review and LLM-as-judge for releases.
+    </p>
+  </section>
+
+  <!-- ========================================================== -->
+  <!-- WRAP-UP                                                       -->
+  <!-- ========================================================== -->
+  <section class="slide" data-section="Wrap-up">
+    <div class="eyebrow">Wrap-up</div>
+    <h2 class="h2">What you can do <span class="accent">tomorrow morning</span></h2>
+
+    <ul class="checklist">
+      <li>Build real API-based LLM workflows across three providers</li>
+      <li>Manage authentication securely with <code>.env</code> and python-dotenv</li>
+      <li>Pick between hosted and self-hosted models on the right criteria</li>
+      <li>Get structured JSON you can feed into downstream code</li>
+      <li>Add tool calling so the model talks to your real systems</li>
+      <li>Evaluate model outputs with ROUGE, BLEU, BERTScore</li>
+    </ul>
+
+    <div class="callout" style="margin-top:32px;">
+      <div class="label">Further reading</div>
+      <p style="font-family: var(--font-mono); font-size: 13px; color: var(--ink-soft);">
+        ai.google.dev/gemini-api &nbsp;·&nbsp;
+        huggingface.co/docs/inference-providers &nbsp;·&nbsp;
+        platform.openai.com/docs &nbsp;·&nbsp;
+        huggingface.co/docs/transformers
+      </p>
+    </div>
+  </section>
+
+  <section class="slide title-slide" data-section="Thanks">
+    <div class="eyebrow">End of session</div>
+    <h1 class="h1">Questions?</h1>
+    <p class="lede blurb">
+      The companion code repo is yours. Read it, break it, fork it. Bring problems to the next session.
+    </p>
+    <div class="rule"></div>
+    <div class="meta">C8-W2-S1 &nbsp;·&nbsp; <span>upGrad</span></div>
+  </section>
+
+</div>
+
+<div class="progress"><span id="progress-bar"></span></div>
+<div class="help">
+  <kbd>←</kbd> <kbd>→</kbd> navigate &nbsp;·&nbsp; <kbd>F</kbd> fullscreen &nbsp;·&nbsp; <kbd>Home</kbd> / <kbd>End</kbd>
+</div>
+
+<!-- Prism core + languages -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  document.getElementById('total').textContent = String(total).padStart(2, '0');
+
+  const sectionLabel = document.getElementById('section-label');
+  const cur = document.getElementById('cur');
+  const bar = document.getElementById('progress-bar');
+
+  // URL hash sync (so reload preserves position)
+  function readHashIndex() {
+    const m = location.hash.match(/^#(\d+)$/);
+    if (!m) return 0;
+    const i = parseInt(m[1], 10) - 1;
+    return Math.max(0, Math.min(total - 1, i));
+  }
+
+  let idx = readHashIndex();
+  function show(i) {
+    idx = Math.max(0, Math.min(total - 1, i));
+    slides.forEach((s, n) => s.classList.toggle('is-active', n === idx));
+    cur.textContent = String(idx + 1).padStart(2, '0');
+    sectionLabel.textContent = slides[idx].dataset.section || 'C8-W2-S1';
+    bar.style.width = ((idx + 1) / total * 100).toFixed(2) + '%';
+    history.replaceState(null, '', '#' + (idx + 1));
+    // ensure top of slide is visible (each slide may be scrollable)
+    slides[idx].scrollTop = 0;
+  }
+  show(idx);
+
+  document.addEventListener('keydown', (e) => {
+    if (e.target.matches('input, textarea')) return;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'PageDown':
+      case ' ':
+        e.preventDefault(); show(idx + 1); break;
+      case 'ArrowLeft':
+      case 'PageUp':
+        e.preventDefault(); show(idx - 1); break;
+      case 'Home':
+        e.preventDefault(); show(0); break;
+      case 'End':
+        e.preventDefault(); show(total - 1); break;
+      case 'f': case 'F':
+        if (!document.fullscreenElement) document.documentElement.requestFullscreen();
+        else document.exitFullscreen();
+        break;
+    }
+  });
+
+  // Click left/right halves of the screen to navigate
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('a, button, pre, code, input, textarea')) return;
+    const x = e.clientX / window.innerWidth;
+    if (x > 0.5) show(idx + 1); else show(idx - 1);
+  });
+
+  // Touch swipe
+  let touchX = null;
+  document.addEventListener('touchstart', (e) => { touchX = e.touches[0].clientX; });
+  document.addEventListener('touchend', (e) => {
+    if (touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if (Math.abs(dx) > 60) show(idx + (dx < 0 ? 1 : -1));
+    touchX = null;
+  });
+
+  window.addEventListener('hashchange', () => show(readHashIndex()));
+</script>
+
+</body>
+</html>
