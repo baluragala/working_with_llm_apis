@@ -28,14 +28,31 @@ MODEL = "meta-llama/Llama-3.1-8B-Instruct"
 
 # ---- 1. Discover providers for this model -----------------------------
 # model_info(...).inference_provider_mapping shows which providers host it.
+# In huggingface_hub >= 1.0 this is a list of InferenceProviderMapping objects
+# (each has .provider, .status, .task, ...). Older versions returned a dict
+# keyed by provider name. We handle both.
 try:
     info = model_info(MODEL, expand=["inferenceProviderMapping"], token=token)
-    providers = list((info.inference_provider_mapping or {}).keys())
+    mapping = info.inference_provider_mapping or []
+
+    if isinstance(mapping, dict):                  # legacy shape
+        providers = list(mapping.keys())
+    else:                                          # new shape: list of objects
+        seen = set()
+        providers = []
+        for item in mapping:
+            if getattr(item, "status", "live") != "live":
+                continue
+            name = item.provider
+            if name not in seen:
+                seen.add(name)
+                providers.append(name)
+
     print(f"Providers hosting {MODEL}:")
     for p in providers:
         print(f"  - {p}")
 except Exception as e:
-    print(f"Could not list providers: {e}")
+    print(f"Could not list providers: {type(e).__name__}: {e}")
     providers = []
 
 print()
