@@ -5,6 +5,10 @@ All scripts are runnable end-to-end. Each one stands alone — no inter-file imp
 
 ## Setup
 
+> First time setting up? See **[SETUP.md](./SETUP.md)** for step-by-step instructions covering Linux, macOS, and Windows (CMD + PowerShell), including Python / Git / VSCode install.
+
+Quick version (if you already have Python 3.10+ and Git):
+
 ```bash
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
