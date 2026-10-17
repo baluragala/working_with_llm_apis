@@ -30,7 +30,7 @@ def check_gemini() -> None:
         from google import genai
         client = genai.Client(api_key=key)
         resp = client.models.generate_content(
-            model="gemini-2.5-flash",
+            model="gemini-3.1-flash-lite",
             contents="Reply with exactly the word: pong",
         )
         print(f"Gemini       : OK   -> {resp.text.strip()!r}")

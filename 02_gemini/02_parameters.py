@@ -26,7 +26,7 @@ PROMPT = "Write one opening line for a short story about a lighthouse keeper."
 
 # ---- 1. Deterministic (temperature 0) -------------------------------
 boring = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     contents=PROMPT,
     config=types.GenerateContentConfig(
         temperature=0.0,
@@ -39,12 +39,12 @@ print()
 
 # ---- 2. High temperature, creative ---------------------------------
 creative = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     contents=PROMPT,
     config=types.GenerateContentConfig(
         temperature=1.5,
         top_p=0.95,
-        max_output_tokens=60,
+        max_output_tokens=6,
     ),
 )
 print("=== temperature=1.5, top_p=0.95 (creative) ===")
@@ -55,7 +55,7 @@ print()
 # system_instruction sets the model's persona / rules. It is sent on every
 # turn but is conceptually separate from the user's contents.
 styled = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     contents=PROMPT,
     config=types.GenerateContentConfig(
         system_instruction=(

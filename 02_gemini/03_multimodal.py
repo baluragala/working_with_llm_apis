@@ -31,7 +31,7 @@ resp.raise_for_status()
 img_bytes = resp.content
 
 response = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     contents=[
         "Describe this animal in one sentence, then list three traits as bullet points.",
         types.Part.from_bytes(data=img_bytes, mime_type="image/jpeg"),

@@ -21,10 +21,10 @@ load_dotenv()
 client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
 
 response = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     contents="Give me three reasons to learn Python.",
     config=types.GenerateContentConfig(
-        max_output_tokens=200,
+        max_output_tokens=50,
         candidate_count=1,        # try 2 if the model variant supports it
     ),
 )

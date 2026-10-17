@@ -59,13 +59,15 @@ weather_tool = types.Tool(
 user_prompt = "What's the weather in Bangalore right now? Should I carry an umbrella?"
 
 response = client.models.generate_content(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     contents=user_prompt,
     config=types.GenerateContentConfig(tools=[weather_tool]),
 )
 
 # ---- 4. Inspect what the model returned -------------------------------
 part = response.candidates[0].content.parts[0]
+
+print(response)
 
 if part.function_call:
     fc = part.function_call
@@ -80,7 +82,7 @@ if part.function_call:
 
     # ---- 6. Send the result back so the model can finish --------------
     follow_up = client.models.generate_content(
-        model="gemini-2.5-flash",
+        model="gemini-3.1-flash-lite",
         contents=[
             types.Content(role="user",  parts=[types.Part(text=user_prompt)]),
             response.candidates[0].content,                # the function call

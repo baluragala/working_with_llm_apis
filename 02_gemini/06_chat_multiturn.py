@@ -36,14 +36,14 @@ history = [
 ]
 
 # Turn 1
-r1 = client.models.generate_content(model="gemini-2.5-flash", contents=history)
+r1 = client.models.generate_content(model="gemini-3.1-flash-lite", contents=history)
 print(f"User : My name is Asha. Remember it.")
 print(f"Model: {r1.text.strip()}")
 history.append(types.Content(role="model", parts=[types.Part(text=r1.text)]))
 
 # Turn 2 — should remember the name from turn 1
 history.append(types.Content(role="user", parts=[types.Part(text="What is my name?")]))
-r2 = client.models.generate_content(model="gemini-2.5-flash", contents=history)
+r2 = client.models.generate_content(model="gemini-3.1-flash-lite", contents=history)
 print(f"User : What is my name?")
 print(f"Model: {r2.text.strip()}")
 
@@ -56,7 +56,7 @@ print(" APPROACH 2: chats module ")
 print("=" * 60)
 
 chat = client.chats.create(
-    model="gemini-2.5-flash",
+    model="gemini-3.1-flash-lite",
     config=types.GenerateContentConfig(
         system_instruction="You are a concise assistant. Keep answers under 30 words.",
     ),
